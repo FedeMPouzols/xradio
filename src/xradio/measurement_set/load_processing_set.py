@@ -63,28 +63,21 @@ def load_processing_set(
             if isinstance(file_system, s3fs.core.S3FileSystem):
                 ms_store = s3fs.S3Map(root=ms_store, s3=file_system, check=False)
 
+            # Each tree is bound to a local before its accessor is used, which
+            # keeps the steps readable. (xr_ms is a non-cached accessor that
+            # holds its tree strongly, so chained calls on a temporary tree
+            # would also work; see AGENT.md, Writing xarray Accessors.)
+            ms_xdt = xr.open_datatree(
+                ms_store,
+                engine="zarr",
+                drop_variables=drop_variables,
+                cache=False,
+                chunks=None,
+                consolidated=False,
+            )
             if ms_xds_isel:
-                ms_xdt = (
-                    xr.open_datatree(
-                        ms_store,
-                        engine="zarr",
-                        drop_variables=drop_variables,
-                        cache=False,
-                        chunks=None,
-                        consolidated=False,
-                    )
-                    .isel(ms_xds_isel)
-                    .xr_ms.sel(data_group_name=data_group_name)
-                )
-            else:
-                ms_xdt = xr.open_datatree(
-                    ms_store,
-                    engine="zarr",
-                    drop_variables=drop_variables,
-                    cache=False,
-                    chunks=None,
-                    consolidated=False,
-                ).xr_ms.sel(data_group_name=data_group_name)
+                ms_xdt = ms_xdt.isel(ms_xds_isel)
+            ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
             if include_variables is not None:
                 vars_to_drop = [
